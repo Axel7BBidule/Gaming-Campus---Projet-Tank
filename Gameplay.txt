@@ -1,0 +1,13 @@
+Création d'un jeu de tank avec vue du dessus.
+
+Controle de direction :
+	Droite
+	Gauche
+
+Controle de vitesse :
+	Haut pour avancer
+	Bas pour reculer
+
+pour freiner :
+	Espace
+
