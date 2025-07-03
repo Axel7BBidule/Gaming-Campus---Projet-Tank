@@ -9,9 +9,10 @@ tank.y = 1
 tank.vx = 0
 tank.vy = 0
 tank.angle = 0
-tank.vitesse = 0
-tank.vitesseMax = 100
+tank.velocite = 0
+tank.vitesse = 100
 tank.acceleration = 2
+tank.orientation = nil
 
 function love.load()
     --Calculer taille écran
@@ -23,50 +24,50 @@ function love.load()
 end
 
 function love.update(dt)
-    --Controler le tank
+    --INPUT
+    local orientation
+    local tire
+
     if love.keyboard.isDown("up") then
-        tank.vitesse = tank.vitesse + tank.acceleration
+        orientation = "haut"
+    elseif love.keyboard.isDown("down") then
+        orientation = "bas"
+    elseif love.keyboard.isDown("right") then
+        orientation = "droite"
+    elseif love.keyboard.isDown("left") then
+        orientation = "gauche"
     end
 
-    if love.keyboard.isDown("down") then
-        tank.vitesse = tank.vitesse - tank.acceleration
+    --Controler le tank
+
+    if orientation == "bas" then
+        tank.velocite = -tank.vitesse * dt
+    elseif orientation == "haut" then
+        tank.velocite = tank.vitesse * dt
     end
 
-    if love.keyboard.isDown("right") then
-        tank.angle = tank.angle + 90 * dt
-        --Rotation augmentée si on est à 0 en vitesse
-        if tank.vitesse == 0 then
-            tank.angle = tank.angle + 100 * dt
-        end
-    end
-
-    if love.keyboard.isDown("left") then
+    if orientation == "gauche" then
         tank.angle = tank.angle - 90 * dt
-        --Rotation augmentée si on est à 0 en vitesse
-        if tank.vitesse == 0 then
-            tank.angle = tank.angle - 100 * dt
+        if tank.angle <= 0 and tank.angle <= -360 then
+            tank.angle = 0
+        end
+    elseif orientation == "droite" then
+        tank.angle = tank.angle + 90 * dt
+        if tank.angle >= 360 then
+            tank.angle = 0
         end
     end
-    -- arreter le tank
+    -- Tirer
     if love.keyboard.isDown("space") then
-        tank.vitesse = 0
+        tire = true
     end
 
-    --Limiter la vitesse--
-    if tank.vitesse > tank.vitesseMax then
-        tank.vitesse = tank.vitesseMax
-    end
+    --Gestion du mouvement du tank avec Sinus et Cosinus
 
-    if tank.vitesse < -50 then
-        tank.vitesse = -50
-    end
-
-    --Gestion de l'angle :  pour avancer en fonction de l'angle (atelier Space)
-    local angle_rad = math.rad(tank.angle)
-    tank.vx = math.cos(angle_rad) * tank.vitesse
-    tank.vy = math.sin(angle_rad) * tank.vitesse
-    tank.x = tank.x + tank.vx * dt
-    tank.y = tank.y + tank.vy * dt
+    offsetX = math.cos(math.rad(tank.angle)) * tank.velocite
+    offsetY = math.sin(math.rad(tank.angle)) * tank.velocite
+    tank.x = tank.x + offsetX
+    tank.y = tank.y + offsetY
 
     --Gestion des bordures d'écran pour ne pas que le tank sorte
     if tank.x + tank.image:getWidth() / 2 > largeur then
@@ -88,11 +89,10 @@ end
 
 function love.draw()
     --Afficher Informations
-    love.graphics.print("Vitesse tank : " .. tank.vitesse, 1, 1)
+    love.graphics.print("Vitesse tank : " .. tank.velocite, 1, 1)
     love.graphics.print("Angle tank : " .. math.floor(tank.angle), 1, 15)
     love.graphics.print("X du tank : " .. math.floor(tank.x), 1, 30)
     love.graphics.print("Y du tank : " .. math.floor(tank.y), 1, 45)
-    love.graphics.print("Espace pour mettre la vitesse à 0", largeur - 250, 1)
 
     love.graphics.print("Taille X : " .. tank.taille.x, 1, 60)
     love.graphics.print("Taille Y : " .. tank.taille.y, 1, 75)
