@@ -1,18 +1,27 @@
---Test de commit
-
 -- Tableau de mon tank
 tank = {}
 tank.image = love.graphics.newImage("images/tank.png")
 tank.taille = {x = tank.image:getWidth(), y = tank.image:getHeight()}
 tank.x = 1
 tank.y = 1
-tank.vx = 0
-tank.vy = 0
 tank.angle = 0
 tank.velocite = 0
 tank.vitesse = 100
 tank.acceleration = 2
-tank.orientation = nil
+
+--Balle
+balles = {}
+coolDown = 1
+tempsDepuisDernierTir = 1
+
+function tirerBalle()
+    local balle = {}
+    balle.x = tank.x
+    balle.y = tank.y
+    balle.angle = tank.angle
+    balle.vitesse = 50
+    table.insert(balles, balle)
+end
 
 function love.load()
     --Calculer taille écran
@@ -57,9 +66,11 @@ function love.update(dt)
             tank.angle = 0
         end
     end
-    -- Tirer
-    if love.keyboard.isDown("space") then
-        tire = true
+    --Tire de balle avec délai (coolDown)
+    tempsDepuisDernierTir = tempsDepuisDernierTir + dt
+    if love.keyboard.isDown("space") and tempsDepuisDernierTir >= coolDown and #balles < 5 then
+        tirerBalle()
+        tempsDepuisDernierTir = 0
     end
 
     --Gestion du mouvement du tank avec Sinus et Cosinus
@@ -69,21 +80,10 @@ function love.update(dt)
     tank.x = tank.x + offsetX
     tank.y = tank.y + offsetY
 
-    --Gestion des bordures d'écran pour ne pas que le tank sorte
-    if tank.x + tank.image:getWidth() / 2 > largeur then
-        tank.x = largeur - tank.image:getWidth() / 2
-    end
-
-    if tank.x - tank.image:getWidth() / 2 < 0 then
-        tank.x = 0 + tank.image:getWidth() / 2
-    end
-
-    if tank.y - tank.image:getHeight() / 2 < 0 then
-        tank.y = 0 + tank.image:getHeight() / 2
-    end
-
-    if tank.y + tank.image:getHeight() / 2 > hauteur then
-        tank.y = hauteur - tank.image:getHeight() / 2
+    --Gestion du mouvement des balles
+    for i, balle in ipairs(balles) do
+        balle.x = balle.x + math.cos(math.rad(balle.angle)) * balle.vitesse * dt
+        balle.y = balle.y + math.sin(math.rad(balle.angle)) * balle.vitesse * dt
     end
 end
 
@@ -108,4 +108,8 @@ function love.draw()
         tank.image:getWidth() / 2, --Point d'origine X
         tank.image:getHeight() / 2 --Point d'origine Y
     )
+    --Afficher le tire/la balle
+    for i, balle in ipairs(balles) do
+        love.graphics.circle("fill", balle.x, balle.y, 5)
+    end
 end
