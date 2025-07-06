@@ -1,5 +1,4 @@
 --Constante
-
 NOMBRE_ENNEMIS = 2
 VITESSE_MAX_TANK = 2
 VITESSE_MIN_TANK = -1
@@ -58,17 +57,14 @@ function love.load()
 end
 
 function love.update(dt)
-    --INPUT
-    local acceleration = joueur.acceleration
-
     -- Gestion de l'accélération avant
     if love.keyboard.isDown("up") then
-        joueur.vitesseActuelle = joueur.vitesseActuelle + acceleration * dt
+        joueur.vitesseActuelle = joueur.vitesseActuelle + joueur.acceleration * dt / 2
         if joueur.vitesseActuelle > joueur.vitesseMax then
             joueur.vitesseActuelle = joueur.vitesseMax
         end
     elseif joueur.vitesseActuelle > 0 then
-        joueur.vitesseActuelle = joueur.vitesseActuelle - acceleration * dt / 2
+        joueur.vitesseActuelle = joueur.vitesseActuelle - joueur.acceleration * dt / 2
         if joueur.vitesseActuelle < 0 then
             joueur.vitesseActuelle = 0
         end
@@ -76,12 +72,12 @@ function love.update(dt)
 
     -- Gestion de la marche arrière
     if love.keyboard.isDown("down") then
-        joueur.vitesseActuelle = joueur.vitesseActuelle - acceleration * dt
+        joueur.vitesseActuelle = joueur.vitesseActuelle - joueur.acceleration * dt
         if joueur.vitesseActuelle < joueur.vitesseMin then
             joueur.vitesseActuelle = joueur.vitesseMin
         end
     elseif joueur.vitesseActuelle < 0 then
-        joueur.vitesseActuelle = joueur.vitesseActuelle + acceleration * dt / 2
+        joueur.vitesseActuelle = joueur.vitesseActuelle + joueur.acceleration * dt / 2
         if joueur.vitesseActuelle > 0 then
             joueur.vitesseActuelle = 0
         end
@@ -91,9 +87,6 @@ function love.update(dt)
     if love.keyboard.isDown("left") then
         joueur.angle = joueur.angle - 90 * dt
 
-        if joueur.vitesseActuelle == 0 then
-            joueur.angle = joueur.angle - 120 * dt
-        end
         --Permet de rester entre -0 et -360
         if joueur.angle <= -360 then
             joueur.angle = 0
@@ -103,20 +96,10 @@ function love.update(dt)
     if love.keyboard.isDown("right") then
         joueur.angle = joueur.angle + 90 * dt
 
-        if joueur.vitesseActuelle == 0 then
-            joueur.angle = joueur.angle + 120 * dt
-        end
         --Permet de rester entre 0 et 360
         if joueur.angle >= 360 then
             joueur.angle = 0
         end
-    end
-
-    --Tire de balle avec délai (coolDown)
-    tempsDepuisDernierTir = tempsDepuisDernierTir + dt
-    if love.keyboard.isDown("space") and tempsDepuisDernierTir >= coolDown and #balles < 5 then
-        tirerBalle(joueur)
-        tempsDepuisDernierTir = 0
     end
 
     -- Appliquer le déplacement
@@ -125,6 +108,13 @@ function love.update(dt)
     offsetY = math.sin(math.rad(joueur.angle)) * joueur.velocite
     joueur.x = joueur.x + offsetX
     joueur.y = joueur.y + offsetY
+
+    --Tire de balle avec délai (coolDown)
+    tempsDepuisDernierTir = tempsDepuisDernierTir + dt
+    if love.keyboard.isDown("space") and tempsDepuisDernierTir >= coolDown and #balles < 5 then
+        tirerBalle(joueur)
+        tempsDepuisDernierTir = 0
+    end
 
     --Gestion du mouvement des balles
     for i, balle in ipairs(balles) do
@@ -139,6 +129,12 @@ function love.update(dt)
             table.remove(balles, i)
         end
     end
+
+    --Gestion rotation tourelle avec la souris
+
+    --Gestion collision avec la Balle
+
+    --Gestion comportement enemies
 end
 
 function love.draw()
