@@ -1,5 +1,6 @@
 --Constante
 NOMBRE_ENNEMIS = 2
+VITESSE_BALLE = 100
 VITESSE_MAX_TANK = 2
 VITESSE_MIN_TANK = -1
 
@@ -45,7 +46,7 @@ function tirerBalle(entite)
     balle.y = entite.y
     -- Calcul de l'angle entre le tank et la souris
     balle.angle = math.deg(math.atan2(souris.y - entite.y, souris.x - entite.x))
-    balle.vitesse = 250
+    balle.vitesse = VITESSE_BALLE
     table.insert(balles, balle)
 end
 
@@ -137,7 +138,24 @@ function love.update(dt)
         end
     end
 
-    --Gestion collision avec la Balle
+    --Gestion collision balle/ennemi
+    for i = #balles, 1, -1 do
+        local balle = balles[i]
+        for n = #listeDesEntites, 1, -1 do
+            local entite = listeDesEntites[n]
+            if entite.type == "pnjEnemie" then
+                -- Test point (balle) dans rectangle (ennemi)
+                if
+                    balle.x > entite.x - entite.taille.x / 2 and balle.x < entite.x + entite.taille.x / 2 and
+                        balle.y > entite.y - entite.taille.y / 2 and
+                        balle.y < entite.y + entite.taille.y / 2
+                 then
+                    table.remove(balles, i)
+                    table.remove(listeDesEntites, n)
+                end
+            end
+        end
+    end
 
     --Gestion comportement enemies
 end
