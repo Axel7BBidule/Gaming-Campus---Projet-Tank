@@ -1,6 +1,8 @@
 --Constante
 
 NOMBRE_ENNEMIS = 2
+VITESSE_MAX_TANK = 2
+VITESSE_MIN_TANK = -1
 
 -- Tableau de mes entités
 listeDesEntites = {}
@@ -13,9 +15,9 @@ function CreerUneEntite(pImage, pType, pX, pY)
     entite.x = pX
     entite.y = pY
     entite.angle = 0
-    entite.vitesse = 100
     entite.vitesseActuelle = 0
-    entite.vitesseMax = 1
+    entite.vitesseMax = VITESSE_MAX_TANK
+    entite.vitesseMin = VITESSE_MIN_TANK
     entite.acceleration = 2
 
     table.insert(listeDesEntites, entite)
@@ -58,7 +60,6 @@ end
 function love.update(dt)
     --INPUT
     local acceleration = joueur.acceleration
-    local frein = joueur.acceleration * 1.5
 
     -- Gestion de l'accélération avant
     if love.keyboard.isDown("up") then
@@ -66,16 +67,24 @@ function love.update(dt)
         if joueur.vitesseActuelle > joueur.vitesseMax then
             joueur.vitesseActuelle = joueur.vitesseMax
         end
-    else
+    elseif joueur.vitesseActuelle > 0 then
         joueur.vitesseActuelle = joueur.vitesseActuelle - acceleration * dt / 2
-        if joueur.vitesseActuelle <= 0 then
+        if joueur.vitesseActuelle < 0 then
             joueur.vitesseActuelle = 0
         end
     end
 
     -- Gestion de la marche arrière
     if love.keyboard.isDown("down") then
-        joueur.vitesseActuelle = joueur.vitesseActuelle - (acceleration * dt)
+        joueur.vitesseActuelle = joueur.vitesseActuelle - acceleration * dt
+        if joueur.vitesseActuelle < joueur.vitesseMin then
+            joueur.vitesseActuelle = joueur.vitesseMin
+        end
+    elseif joueur.vitesseActuelle < 0 then
+        joueur.vitesseActuelle = joueur.vitesseActuelle + acceleration * dt / 2
+        if joueur.vitesseActuelle > 0 then
+            joueur.vitesseActuelle = 0
+        end
     end
 
     -- Gestion de la rotation
@@ -122,6 +131,14 @@ function love.update(dt)
         balle.x = balle.x + math.cos(math.rad(balle.angle)) * balle.vitesse * dt
         balle.y = balle.y + math.sin(math.rad(balle.angle)) * balle.vitesse * dt
     end
+
+    --Gestion suppression des Balles
+    for i = #balles, 1, -1 do
+        local balle = balles[i]
+        if balle.x < 0 or balle.x > largeur or balle.y < 0 or balle.y > hauteur then
+            table.remove(balles, i)
+        end
+    end
 end
 
 function love.draw()
@@ -130,9 +147,7 @@ function love.draw()
     love.graphics.print("Angle tank : " .. math.floor(joueur.angle), 1, 15)
     love.graphics.print("X du tank : " .. math.floor(joueur.x), 1, 30)
     love.graphics.print("Y du tank : " .. math.floor(joueur.y), 1, 45)
-
-    love.graphics.print("Taille X : " .. joueur.taille.x, 1, 60)
-    love.graphics.print("Taille Y : " .. joueur.taille.y, 1, 75)
+    love.graphics.print("Nombre de balle : " .. #balles, 1, 60)
 
     --Afficher les entités
     for i, entite in ipairs(listeDesEntites) do
