@@ -34,11 +34,17 @@ balles = {}
 coolDown = 1
 tempsDepuisDernierTir = 1
 
+souris = {}
+souris.x = 0
+souris.y = 0
+souris.angle = 0
+
 function tirerBalle(entite)
     local balle = {}
     balle.x = entite.x
     balle.y = entite.y
-    balle.angle = entite.angle
+    -- Calcul de l'angle entre le tank et la souris
+    balle.angle = math.deg(math.atan2(souris.y - entite.y, souris.x - entite.x))
     balle.vitesse = 250
     table.insert(balles, balle)
 end
@@ -47,9 +53,6 @@ function love.load()
     --Calculer taille écran
     largeur = love.graphics.getWidth()
     hauteur = love.graphics.getHeight()
-    -- positionner tank au milieu
-    --tank.x = largeur / 2
-    --tank.y = hauteur / 2
 
     joueur = CreerUneEntite("tank", "hero", largeur / 2, hauteur / 2)
 
@@ -109,6 +112,10 @@ function love.update(dt)
     joueur.x = joueur.x + offsetX
     joueur.y = joueur.y + offsetY
 
+    -- Mettre à jour la position de la souris
+    souris.x = love.mouse.getX()
+    souris.y = love.mouse.getY()
+
     --Tire de balle avec délai (coolDown)
     tempsDepuisDernierTir = tempsDepuisDernierTir + dt
     if love.keyboard.isDown("space") and tempsDepuisDernierTir >= coolDown and #balles < 5 then
@@ -130,8 +137,6 @@ function love.update(dt)
         end
     end
 
-    --Gestion rotation tourelle avec la souris
-
     --Gestion collision avec la Balle
 
     --Gestion comportement enemies
@@ -144,6 +149,7 @@ function love.draw()
     love.graphics.print("X du tank : " .. math.floor(joueur.x), 1, 30)
     love.graphics.print("Y du tank : " .. math.floor(joueur.y), 1, 45)
     love.graphics.print("Nombre de balle : " .. #balles, 1, 60)
+    love.graphics.print("Position souris : " .. souris.x .. " | " .. souris.y, 1, 75)
 
     --Afficher les entités
     for i, entite in ipairs(listeDesEntites) do
