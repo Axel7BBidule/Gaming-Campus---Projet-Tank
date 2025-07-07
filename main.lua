@@ -1,7 +1,10 @@
+--Fichiers liés
+require("ennemies")
+
 --Constante
-NOMBRE_ENNEMIS = 2
+NOMBRE_ENNEMIS = 6
 VITESSE_BALLE = 100
-VITESSE_MAX_TANK = 2
+VITESSE_MAX_TANK = 1
 VITESSE_MIN_TANK = -1
 
 -- Tableau de mes entités
@@ -14,19 +17,41 @@ function CreerUneEntite(pImage, pType, pX, pY)
     entite.type = pType
     entite.x = pX
     entite.y = pY
+    entite.vx = 0
+    entite.vy = 0
     entite.angle = 0
+    entite.vitesse = 0.5
     entite.vitesseActuelle = 0
     entite.vitesseMax = VITESSE_MAX_TANK
     entite.vitesseMin = VITESSE_MIN_TANK
-    entite.acceleration = 2
-
+    entite.acceleration = 1
+    entite.vision = 200 --
+    entite.pv = 10
+    entite.etat = ""
+    if pType == "pnjEnemie" then
+        entite.distance_min = math.random(10, 20)
+        entite.cooldownTir = 2
+        entite.tempsDepuisDernierTir = 0
+        entite.cible = joueur -- sera mis à jour dans love.load
+        function entite:tirer()
+            local balle = {}
+            balle.x = self.x
+            balle.y = self.y
+            local angle = math.atan2(joueur.y - self.y, joueur.x - self.x)
+            balle.angle = math.deg(angle)
+            balle.vitesse = VITESSE_BALLE
+            balle.source = "ennemi"
+            table.insert(balles, balle)
+        end
+    end
     table.insert(listeDesEntites, entite)
     return entite
 end
 
 function CreerEnnemis(n)
     for i = 1, n do
-        CreerUneEntite("enemie", "pnjEnemie", math.random(100, 500), math.random(10, 100))
+        local ennemi = CreerUneEntite("enemie", "pnjEnemie", math.random(100, 500), math.random(10, 100))
+        ennemi.cible = joueur
     end
 end
 
@@ -44,9 +69,9 @@ function tirerBalle(entite)
     local balle = {}
     balle.x = entite.x
     balle.y = entite.y
-    -- Calcul de l'angle entre le tank et la souris
     balle.angle = math.deg(math.atan2(souris.y - entite.y, souris.x - entite.x))
     balle.vitesse = VITESSE_BALLE
+    balle.source = "joueur"
     table.insert(balles, balle)
 end
 
@@ -62,7 +87,7 @@ end
 
 function love.update(dt)
     -- Gestion de l'accélération avant
-    if love.keyboard.isDown("up") then
+    if love.keyboard.isDown("up") or love.keyboard.isDown("z") then
         joueur.vitesseActuelle = joueur.vitesseActuelle + joueur.acceleration * dt / 2
         if joueur.vitesseActuelle > joueur.vitesseMax then
             joueur.vitesseActuelle = joueur.vitesseMax
@@ -75,7 +100,7 @@ function love.update(dt)
     end
 
     -- Gestion de la marche arrière
-    if love.keyboard.isDown("down") then
+    if love.keyboard.isDown("down") or love.keyboard.isDown("s") then
         joueur.vitesseActuelle = joueur.vitesseActuelle - joueur.acceleration * dt
         if joueur.vitesseActuelle < joueur.vitesseMin then
             joueur.vitesseActuelle = joueur.vitesseMin
@@ -88,7 +113,7 @@ function love.update(dt)
     end
 
     -- Gestion de la rotation
-    if love.keyboard.isDown("left") then
+    if love.keyboard.isDown("left") or love.keyboard.isDown("q") then
         joueur.angle = joueur.angle - 90 * dt
 
         --Permet de rester entre -0 et -360
@@ -97,7 +122,7 @@ function love.update(dt)
         end
     end
 
-    if love.keyboard.isDown("right") then
+    if love.keyboard.isDown("right") or love.keyboard.isDown("d") then
         joueur.angle = joueur.angle + 90 * dt
 
         --Permet de rester entre 0 et 360
@@ -119,7 +144,7 @@ function love.update(dt)
 
     --Tire de balle avec délai (coolDown)
     tempsDepuisDernierTir = tempsDepuisDernierTir + dt
-    if love.keyboard.isDown("space") and tempsDepuisDernierTir >= coolDown and #balles < 5 then
+    if love.mouse.isDown(1) and tempsDepuisDernierTir >= coolDown and #balles < 5 then
         tirerBalle(joueur)
         tempsDepuisDernierTir = 0
     end
@@ -138,26 +163,46 @@ function love.update(dt)
         end
     end
 
-    --Gestion collision balle/ennemi
+    --Gestion collision
     for i = #balles, 1, -1 do
         local balle = balles[i]
-        for n = #listeDesEntites, 1, -1 do
-            local entite = listeDesEntites[n]
-            if entite.type == "pnjEnemie" then
-                -- Test point (balle) dans rectangle (ennemi)
-                if
-                    balle.x > entite.x - entite.taille.x / 2 and balle.x < entite.x + entite.taille.x / 2 and
-                        balle.y > entite.y - entite.taille.y / 2 and
-                        balle.y < entite.y + entite.taille.y / 2
-                 then
-                    table.remove(balles, i)
-                    table.remove(listeDesEntites, n)
+        if balle.source == "joueur" then
+            for n = #listeDesEntites, 1, -1 do
+                local entite = listeDesEntites[n]
+                if entite.type == "pnjEnemie" then
+                    if
+                        balle.x > entite.x - entite.taille.x / 2 and balle.x < entite.x + entite.taille.x / 2 and
+                            balle.y > entite.y - entite.taille.y / 2 and
+                            balle.y < entite.y + entite.taille.y / 2
+                     then
+                        table.remove(balles, i)
+                        entite.pv = entite.pv - 1
+                        if entite.pv <= 0 then
+                            table.remove(listeDesEntites, n)
+                        end
+                        break
+                    end
                 end
+            end
+        elseif balle.source == "ennemi" then
+            -- Collision balle
+            if
+                balle.x > joueur.x - joueur.taille.x / 2 and balle.x < joueur.x + joueur.taille.x / 2 and
+                    balle.y > joueur.y - joueur.taille.y / 2 and
+                    balle.y < joueur.y + joueur.taille.y / 2
+             then
+                table.remove(balles, i)
+                joueur.pv = joueur.pv - 1
             end
         end
     end
 
     --Gestion comportement enemies
+    for i, entite in ipairs(listeDesEntites) do
+        if entite.type == "pnjEnemie" then
+            machineEtat(entite, dt)
+        end
+    end
 end
 
 function love.draw()
@@ -167,7 +212,6 @@ function love.draw()
     love.graphics.print("X du tank : " .. math.floor(joueur.x), 1, 30)
     love.graphics.print("Y du tank : " .. math.floor(joueur.y), 1, 45)
     love.graphics.print("Nombre de balle : " .. #balles, 1, 60)
-    love.graphics.print("Position souris : " .. souris.x .. " | " .. souris.y, 1, 75)
 
     --Afficher les entités
     for i, entite in ipairs(listeDesEntites) do
@@ -186,5 +230,9 @@ function love.draw()
     --Afficher le tire/la balle
     for i, balle in ipairs(balles) do
         love.graphics.circle("fill", balle.x, balle.y, 5)
+    end
+    --Afficher PV ennemie
+    for i, entite in ipairs(listeDesEntites) do
+        love.graphics.print("PV : " .. entite.pv, entite.x + (entite.taille.x / 2), entite.y + (entite.taille.y / 2))
     end
 end
