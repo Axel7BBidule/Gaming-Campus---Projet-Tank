@@ -2,219 +2,231 @@
 require("ennemies")
 
 --Constante
-NOMBRE_ENNEMIS = 6
-VITESSE_BALLE = 100
-VITESSE_MAX_TANK = 1
-VITESSE_MIN_TANK = -1
+NUMBERS_ENEMY = 6
+SPEED_BULLET = 100
+SPEED_TANK_MAX = 1
+SPEED_TANK_MIN = -1
 
+--bullet
+local bullets = {}
+local coolDown = 1
+local last_fire = 1
 -- Tableau de mes entités
-listeDesEntites = {}
+LIST_ENTITIES = {}
 
-function CreerUneEntite(pImage, pType, pX, pY)
+function CreateEntities(pImage, pType, pX, pY)
     local entite = {}
     entite.image = love.graphics.newImage("images/" .. pImage .. ".png")
-    entite.taille = {x = entite.image:getWidth(), y = entite.image:getHeight()}
+    entite.size = {x = entite.image:getWidth(), y = entite.image:getHeight()}
     entite.type = pType
     entite.x = pX
     entite.y = pY
     entite.vx = 0
     entite.vy = 0
     entite.angle = 0
-    entite.vitesse = 0.5
-    entite.vitesseActuelle = 0
-    entite.vitesseMax = VITESSE_MAX_TANK
-    entite.vitesseMin = VITESSE_MIN_TANK
+    entite.speed = 0.5
+    entite.actual_speed = 0
+    entite.speed_max = SPEED_TANK_MAX
+    entite.speed_min = SPEED_TANK_MIN
     entite.acceleration = 1
     entite.vision = 200 --
     entite.pv = 10
     entite.etat = ""
     if pType == "pnjEnemie" then
-        entite.distance_min = math.random(10, 20)
+        entite.range_min = math.random(10, 20)
         entite.cooldownTir = 2
-        entite.tempsDepuisDernierTir = 0
-        entite.cible = joueur -- sera mis à jour dans love.load
-        function entite:tirer()
-            local balle = {}
-            balle.x = self.x
-            balle.y = self.y
-            local angle = math.atan2(joueur.y - self.y, joueur.x - self.x)
-            balle.angle = math.deg(angle)
-            balle.vitesse = VITESSE_BALLE
-            balle.source = "ennemi"
-            table.insert(balles, balle)
+        entite.last_fire = 0
+        entite.target = player -- sera mis à jour dans love.load
+        function entite:fire()
+            local bullet = {}
+            bullet.x = self.x
+            bullet.y = self.y
+            local angle = math.atan2(player.y - self.y, player.x - self.x)
+            bullet.angle = math.deg(angle)
+            bullet.speed = SPEED_BULLET
+            bullet.source = "ennemi"
+            table.insert(bullets, bullet)
         end
     end
-    table.insert(listeDesEntites, entite)
+    table.insert(LIST_ENTITIES, entite)
     return entite
 end
 
-function CreerEnnemis(n)
+function CreateEnemies(n)
     for i = 1, n do
-        local ennemi = CreerUneEntite("enemie", "pnjEnemie", math.random(100, 500), math.random(10, 100))
-        ennemi.cible = joueur
+        local ennemi = CreateEntities("enemie", "pnjEnemie", math.random(100, 500), math.random(10, 100))
+        ennemi.target = player
     end
 end
 
---Balle
-balles = {}
-coolDown = 1
-tempsDepuisDernierTir = 1
 
-souris = {}
-souris.x = 0
-souris.y = 0
-souris.angle = 0
 
-function tirerBalle(entite)
-    local balle = {}
-    balle.x = entite.x
-    balle.y = entite.y
-    balle.angle = math.deg(math.atan2(souris.y - entite.y, souris.x - entite.x))
-    balle.vitesse = VITESSE_BALLE
-    balle.source = "joueur"
-    table.insert(balles, balle)
+local mouse = {}
+mouse.x = 0
+mouse.y = 0
+mouse.angle = 0
+
+function FireBullet(entite)
+    local bullet = {}
+    bullet.x = entite.x
+    bullet.y = entite.y
+    bullet.angle = math.deg(math.atan2(mouse.y - entite.y, mouse.x - entite.x))
+    bullet.speed = SPEED_BULLET
+    bullet.source = "player"
+    table.insert(bullets, bullet)
 end
 
 function love.load()
     --Calculer taille écran
-    largeur = love.graphics.getWidth()
-    hauteur = love.graphics.getHeight()
+    width = love.graphics.getWidth()
+    height = love.graphics.getHeight()
 
-    joueur = CreerUneEntite("tank", "hero", largeur / 2, hauteur / 2)
+    player = CreateEntities("tank", "hero", width / 2, height / 2)
 
-    CreerEnnemis(NOMBRE_ENNEMIS)
+    CreateEnemies(NUMBERS_ENEMY)
 end
 
 function love.update(dt)
+    -- Affiche l'aide au debug
+    if love.keyboard.isDown("r") then
+        info = true
+    end
+
+    if love.keyboard.isDown("t") then
+        info = false
+    end
+
     -- Gestion de l'accélération avant
     if love.keyboard.isDown("up") or love.keyboard.isDown("z") then
-        joueur.vitesseActuelle = joueur.vitesseActuelle + joueur.acceleration * dt / 2
-        if joueur.vitesseActuelle > joueur.vitesseMax then
-            joueur.vitesseActuelle = joueur.vitesseMax
+        player.actual_speed = player.actual_speed + player.acceleration * dt / 2
+        if player.actual_speed > player.speed_max then
+            player.actual_speed = player.speed_max
         end
-    elseif joueur.vitesseActuelle > 0 then
-        joueur.vitesseActuelle = joueur.vitesseActuelle - joueur.acceleration * dt / 2
-        if joueur.vitesseActuelle < 0 then
-            joueur.vitesseActuelle = 0
+    elseif player.actual_speed > 0 then
+        player.actual_speed = player.actual_speed - player.acceleration * dt / 2
+        if player.actual_speed < 0 then
+            player.actual_speed = 0
         end
     end
 
     -- Gestion de la marche arrière
     if love.keyboard.isDown("down") or love.keyboard.isDown("s") then
-        joueur.vitesseActuelle = joueur.vitesseActuelle - joueur.acceleration * dt
-        if joueur.vitesseActuelle < joueur.vitesseMin then
-            joueur.vitesseActuelle = joueur.vitesseMin
+        player.actual_speed = player.actual_speed - player.acceleration * dt
+        if player.actual_speed < player.speed_min then
+            player.actual_speed = player.speed_min
         end
-    elseif joueur.vitesseActuelle < 0 then
-        joueur.vitesseActuelle = joueur.vitesseActuelle + joueur.acceleration * dt / 2
-        if joueur.vitesseActuelle > 0 then
-            joueur.vitesseActuelle = 0
+    elseif player.actual_speed < 0 then
+        player.actual_speed = player.actual_speed + player.acceleration * dt / 2
+        if player.actual_speed > 0 then
+            player.actual_speed = 0
         end
     end
 
     -- Gestion de la rotation
     if love.keyboard.isDown("left") or love.keyboard.isDown("q") then
-        joueur.angle = joueur.angle - 90 * dt
+        player.angle = player.angle - 90 * dt
 
         --Permet de rester entre -0 et -360
-        if joueur.angle <= -360 then
-            joueur.angle = 0
+        if player.angle <= -360 then
+            player.angle = 0
         end
     end
 
     if love.keyboard.isDown("right") or love.keyboard.isDown("d") then
-        joueur.angle = joueur.angle + 90 * dt
+        player.angle = player.angle + 90 * dt
 
         --Permet de rester entre 0 et 360
-        if joueur.angle >= 360 then
-            joueur.angle = 0
+        if player.angle >= 360 then
+            player.angle = 0
         end
     end
 
     -- Appliquer le déplacement
-    joueur.velocite = joueur.vitesseActuelle
-    offsetX = math.cos(math.rad(joueur.angle)) * joueur.velocite
-    offsetY = math.sin(math.rad(joueur.angle)) * joueur.velocite
-    joueur.x = joueur.x + offsetX
-    joueur.y = joueur.y + offsetY
+    player.velocity = player.actual_speed
+    offsetX = math.cos(math.rad(player.angle)) * player.velocity
+    offsetY = math.sin(math.rad(player.angle)) * player.velocity
+    player.x = player.x + offsetX
+    player.y = player.y + offsetY
 
-    -- Mettre à jour la position de la souris
-    souris.x = love.mouse.getX()
-    souris.y = love.mouse.getY()
+    -- Mettre à jour la position de la mouse
+    mouse.x = love.mouse.getX()
+    mouse.y = love.mouse.getY()
 
-    --Tire de balle avec délai (coolDown)
-    tempsDepuisDernierTir = tempsDepuisDernierTir + dt
-    if love.mouse.isDown(1) and tempsDepuisDernierTir >= coolDown and #balles < 5 then
-        tirerBalle(joueur)
-        tempsDepuisDernierTir = 0
+    --Tire de bullet avec délai (coolDown)
+    last_fire = last_fire + dt
+    if love.mouse.isDown(1) and last_fire >= coolDown and #bullets < 5 then
+        FireBullet(player)
+        last_fire = 0
     end
 
-    --Gestion du mouvement des balles
-    for i, balle in ipairs(balles) do
-        balle.x = balle.x + math.cos(math.rad(balle.angle)) * balle.vitesse * dt
-        balle.y = balle.y + math.sin(math.rad(balle.angle)) * balle.vitesse * dt
+    --Gestion du mouvement des bullets
+    for i, bullet in ipairs(bullets) do
+        bullet.x = bullet.x + math.cos(math.rad(bullet.angle)) * bullet.speed * dt
+        bullet.y = bullet.y + math.sin(math.rad(bullet.angle)) * bullet.speed * dt
     end
 
-    --Gestion suppression des Balles
-    for i = #balles, 1, -1 do
-        local balle = balles[i]
-        if balle.x < 0 or balle.x > largeur or balle.y < 0 or balle.y > hauteur then
-            table.remove(balles, i)
+    --Gestion suppression des bullets
+    for i = #bullets, 1, -1 do
+        local bullet = bullets[i]
+        if bullet.x < 0 or bullet.x > width or bullet.y < 0 or bullet.y > height then
+            table.remove(bullets, i)
         end
     end
 
     --Gestion collision
-    for i = #balles, 1, -1 do
-        local balle = balles[i]
-        if balle.source == "joueur" then
-            for n = #listeDesEntites, 1, -1 do
-                local entite = listeDesEntites[n]
+    for i = #bullets, 1, -1 do
+        local bullet = bullets[i]
+        if bullet.source == "player" then
+            for n = #LIST_ENTITIES, 1, -1 do
+                local entite = LIST_ENTITIES[n]
                 if entite.type == "pnjEnemie" then
                     if
-                        balle.x > entite.x - entite.taille.x / 2 and balle.x < entite.x + entite.taille.x / 2 and
-                            balle.y > entite.y - entite.taille.y / 2 and
-                            balle.y < entite.y + entite.taille.y / 2
+                        bullet.x > entite.x - entite.size.x / 2 and bullet.x < entite.x + entite.size.x / 2 and
+                            bullet.y > entite.y - entite.size.y / 2 and
+                            bullet.y < entite.y + entite.size.y / 2
                      then
-                        table.remove(balles, i)
+                        table.remove(bullets, i)
                         entite.pv = entite.pv - 1
                         if entite.pv <= 0 then
-                            table.remove(listeDesEntites, n)
+                            table.remove(LIST_ENTITIES, n)
                         end
                         break
                     end
                 end
             end
-        elseif balle.source == "ennemi" then
-            -- Collision balle
+        elseif bullet.source == "ennemi" then
+            -- Collision bullet
             if
-                balle.x > joueur.x - joueur.taille.x / 2 and balle.x < joueur.x + joueur.taille.x / 2 and
-                    balle.y > joueur.y - joueur.taille.y / 2 and
-                    balle.y < joueur.y + joueur.taille.y / 2
+                bullet.x > player.x - player.size.x / 2 and bullet.x < player.x + player.size.x / 2 and
+                    bullet.y > player.y - player.size.y / 2 and
+                    bullet.y < player.y + player.size.y / 2
              then
-                table.remove(balles, i)
-                joueur.pv = joueur.pv - 1
+                table.remove(bullets, i)
+                player.pv = player.pv - 1
             end
         end
     end
 
     --Gestion comportement enemies
-    for i, entite in ipairs(listeDesEntites) do
+    for i, entite in ipairs(LIST_ENTITIES) do
         if entite.type == "pnjEnemie" then
-            machineEtat(entite, dt)
+            StateMachine(entite, dt)
         end
     end
 end
 
 function love.draw()
-    --Afficher Informations
-    love.graphics.print("Vitesse tank : " .. joueur.vitesseActuelle, 1, 1)
-    love.graphics.print("Angle tank : " .. math.floor(joueur.angle), 1, 15)
-    love.graphics.print("X du tank : " .. math.floor(joueur.x), 1, 30)
-    love.graphics.print("Y du tank : " .. math.floor(joueur.y), 1, 45)
-    love.graphics.print("Nombre de balle : " .. #balles, 1, 60)
+    if info == true then
+        --Afficher Informations
+        love.graphics.print("speed tank : " .. player.actual_speed, 1, 1)
+        love.graphics.print("Angle tank : " .. math.floor(player.angle), 1, 15)
+        love.graphics.print("X du tank : " .. math.floor(player.x), 1, 30)
+        love.graphics.print("Y du tank : " .. math.floor(player.y), 1, 45)
+        love.graphics.print("Nombre de bullet : " .. #bullets, 1, 60)
+    end
 
     --Afficher les entités
-    for i, entite in ipairs(listeDesEntites) do
+    for i, entite in ipairs(LIST_ENTITIES) do
         love.graphics.draw(
             entite.image,
             entite.x,
@@ -227,12 +239,12 @@ function love.draw()
         )
     end
 
-    --Afficher le tire/la balle
-    for i, balle in ipairs(balles) do
-        love.graphics.circle("fill", balle.x, balle.y, 5)
+    --Afficher le tire/la bullet
+    for i, bullet in ipairs(bullets) do
+        love.graphics.circle("fill", bullet.x, bullet.y, 5)
     end
     --Afficher PV ennemie
-    for i, entite in ipairs(listeDesEntites) do
-        love.graphics.print("PV : " .. entite.pv, entite.x + (entite.taille.x / 2), entite.y + (entite.taille.y / 2))
+    for i, entite in ipairs(LIST_ENTITIES) do
+        love.graphics.print("PV : " .. entite.pv, entite.x + (entite.size.x / 2), entite.y + (entite.size.y / 2))
     end
 end
