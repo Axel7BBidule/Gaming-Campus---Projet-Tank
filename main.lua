@@ -9,7 +9,7 @@ SPEED_TANK_MIN = -1
 
 --bullet
 local bullets = {}
-local coolDown = 1
+local coolDown = 0.2
 local last_fire = 1
 -- Tableau de mes entités
 LIST_ENTITIES = {}
@@ -28,6 +28,7 @@ function CreateEntities(pImage, pType, pX, pY)
     entite.actual_speed = 0
     entite.speed_max = SPEED_TANK_MAX
     entite.speed_min = SPEED_TANK_MIN
+    entite.bulletcount = 0
     entite.acceleration = 1
     entite.vision = 200 --
     entite.pv = 10
@@ -73,20 +74,22 @@ function FireBullet(entite)
     bullet.angle = math.deg(math.atan2(mouse.y - entite.y, mouse.x - entite.x))
     bullet.speed = SPEED_BULLET
     bullet.source = "player"
+    bullet.count = 0
     table.insert(bullets, bullet)
+    
 end
 
 function love.load()
     --Calculer taille écran
     width = love.graphics.getWidth()
     height = love.graphics.getHeight()
-
     player = CreateEntities("tank", "hero", width / 2, height / 2)
 
     CreateEnemies(NUMBERS_ENEMY)
 end
 
 function love.update(dt)
+   
     -- Affiche l'aide au debug
     if love.keyboard.isDown("r") then
         info = true
@@ -143,8 +146,8 @@ function love.update(dt)
 
     -- Appliquer le déplacement
     player.velocity = player.actual_speed
-    offsetX = math.cos(math.rad(player.angle)) * player.velocity
-    offsetY = math.sin(math.rad(player.angle)) * player.velocity
+    local offsetX = math.cos(math.rad(player.angle)) * player.velocity
+    local offsetY = math.sin(math.rad(player.angle)) * player.velocity
     player.x = player.x + offsetX
     player.y = player.y + offsetY
 
@@ -154,9 +157,12 @@ function love.update(dt)
 
     --Tire de bullet avec délai (coolDown)
     last_fire = last_fire + dt
-    if love.mouse.isDown(1) and last_fire >= coolDown and #bullets < 5 then
-        FireBullet(player)
-        last_fire = 0
+    if love.mouse.isDown(1) and last_fire >= coolDown then
+        if player.bulletcount < 5  then
+            FireBullet(player)
+            player.bulletcount = player.bulletcount + 1
+            last_fire = 0
+        end        
     end
 
     --Gestion du mouvement des bullets
@@ -169,11 +175,12 @@ function love.update(dt)
     for i = #bullets, 1, -1 do
         local bullet = bullets[i]
         if bullet.x < 0 or bullet.x > width or bullet.y < 0 or bullet.y > height then
+            player.bulletcount = player.bulletcount - 1
             table.remove(bullets, i)
         end
     end
 
-    --Gestion collision
+    --Gestion collision sur ennemies
     for i = #bullets, 1, -1 do
         local bullet = bullets[i]
         if bullet.source == "player" then
@@ -187,6 +194,7 @@ function love.update(dt)
                      then
                         table.remove(bullets, i)
                         entite.pv = entite.pv - 1
+                        player.bulletcount = player.bulletcount - 1
                         if entite.pv <= 0 then
                             table.remove(LIST_ENTITIES, n)
                         end
@@ -203,6 +211,10 @@ function love.update(dt)
              then
                 table.remove(bullets, i)
                 player.pv = player.pv - 1
+                if player.pv <= 0 then
+                    table.remove(LIST_ENTITIES,hero)
+                end
+                end
             end
         end
     end
@@ -223,6 +235,7 @@ function love.draw()
         love.graphics.print("X du tank : " .. math.floor(player.x), 1, 30)
         love.graphics.print("Y du tank : " .. math.floor(player.y), 1, 45)
         love.graphics.print("Nombre de bullet : " .. #bullets, 1, 60)
+        love.graphics.print("Compteur bullet : " .. player.bulletcount, 1, 75)
     end
 
     --Afficher les entités
