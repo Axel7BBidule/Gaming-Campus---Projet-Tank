@@ -8,6 +8,9 @@ Controle de vitesse :
 	Haut pour avancer
 	Bas pour reculer
 
-pour freiner :
-	Espace
+Pour tirer:
+	Clique souris
+
+Pour quitter :
+	Echap
 

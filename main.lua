@@ -1,90 +1,28 @@
 --Fichiers liés
-require("ennemies")
-
+require("machineEtat")
+require("entite")
 
 --Constante
 NUMBERS_ENEMY = math.random(4,10)
-SPEED_BULLET = 100
+SPEED_BULLET = 300
 SPEED_TANK_MAX = 1
 SPEED_TANK_MIN = -1
 
 --bullet
-local bullets = {}
-local coolDown = 0.2
-local last_fire = 1
+bullets = {}
+coolDown = 0.2
+last_fire = 1
 -- Tableau de mes entités
 LIST_ENTITIES = {}
 
-function CreateEntities(pImage, pType, pX, pY)
-    local entite = {}
-    entite.image = love.graphics.newImage("images/" .. pImage .. ".png")
-    entite.size = {x = entite.image:getWidth(), y = entite.image:getHeight()}
-    entite.type = pType
-    entite.x = pX
-    entite.y = pY
-    entite.vx = 0
-    entite.vy = 0
-    entite.angle = 0
-    entite.speed = 0.3
-    entite.actual_speed = 0
-    entite.speed_max = SPEED_TANK_MAX
-    entite.speed_min = SPEED_TANK_MIN
-    entite.bulletcount = 0
-    entite.acceleration = 1
-    entite.vision = 200 --
-    entite.pv = 10
-    entite.etat = ""
-    entite.level = 1
-    if pType == "pnjEnemie" then
-        entite.range = math.random(100, 200)
-        entite.cooldownTir = 2
-        entite.last_fire = 0
-        entite.target = player
-        entite.walkTargetX = nil
-        entite.walkTargetY = nil
-        entite.lastSeenX = nil
-        entite.lastSeenY = nil
-        
-        function entite:fire()
-            local bullet = {}
-            bullet.x = self.x
-            bullet.y = self.y
-            local angle = math.atan2(player.y - self.y, player.x - self.x)
-            bullet.angle = math.deg(angle)
-            bullet.speed = SPEED_BULLET
-            bullet.source = "ennemi"
-            table.insert(bullets, bullet)
-        end
-    end
-    table.insert(LIST_ENTITIES, entite)
-    return entite
-end
 
-function CreateEnemies(n)
-    for i = 1, n do
-        local ennemi = CreateEntities("enemie", "pnjEnemie", math.random(100, 500), math.random(10, 100))
-        ennemi.target = player
-    end
-end
-
-
-
-local mouse = {}
+--Souris 
+mouse = {}
 mouse.x = 0
 mouse.y = 0
 mouse.angle = 0
 
-function FireBullet(entite)
-    local bullet = {}
-    bullet.x = entite.x
-    bullet.y = entite.y
-    bullet.angle = math.deg(math.atan2(mouse.y - entite.y, mouse.x - entite.x))
-    bullet.speed = SPEED_BULLET
-    bullet.source = "player"
-    bullet.count = 0
-    table.insert(bullets, bullet)
-    
-end
+
 
 function love.load()
     --Calculer taille écran
@@ -93,10 +31,14 @@ function love.load()
     player = CreateEntities("tank", "hero", width / 2, height / 2)
 
     CreateEnemies(NUMBERS_ENEMY)
+    startTime = love.timer.getTime()
+    victoryStats = {time = 0, enemiesKilled = 0, bulletsFired = 0, playerPV = 0}
 end
 
 --Etat du jeu
 gameState = "menu"
+-- Statistiques pour l'écran victoire
+victoryStats = {time = 0, enemiesKilled = 0, bulletsFired = 0, playerPV = 0}
 
 function love.update(dt)
     if gameState == "menu" then
@@ -107,9 +49,19 @@ function love.update(dt)
             bullets = {}
             player = CreateEntities("tank", "hero", width / 2, height / 2)
             CreateEnemies(NUMBERS_ENEMY)
+            startTime = love.timer.getTime()
+            victoryStats = {time = 0, enemiesKilled = 0, bulletsFired = 0, playerPV = 0}
         end
         return
     elseif gameState == "end" then
+        if love.keyboard.isDown("r") then
+            gameState = "menu"
+        end
+        return
+    elseif gameState == "victory" then
+        if love.keyboard.isDown("r") then
+            gameState = "menu"
+        end
         return
     end
    
@@ -122,8 +74,12 @@ function love.update(dt)
         info = false
     end
 
+    --Arrete le jeu
+    if love.keyboard.isDown("escape") then
+        gameState = "menu"
+    end
     -- Gestion de l'accélération avant
-    if love.keyboard.isDown("up") or love.keyboard.isDown("z") then
+    if love.keyboard.isDown("up") or love.keyboard.isDown("z") and  width > player.x then
         player.actual_speed = player.actual_speed + player.acceleration * dt / 2
         if player.actual_speed > player.speed_max then
             player.actual_speed = player.speed_max
@@ -173,18 +129,24 @@ function love.update(dt)
     local offsetY = math.sin(math.rad(player.angle)) * player.velocity
     player.x = player.x + offsetX
     player.y = player.y + offsetY
+    
+    -- Empêche le héros de sortir de l'écran
+    if player.x < 0 then player.x = 0 end
+    if player.x > width then player.x = width end
+    if player.y < 0 then player.y = 0 end
+    if player.y > height then player.y = height end
 
-    -- Mettre à jour la position de la mouse
+    -- Mettre à jour la position de la souris
     mouse.x = love.mouse.getX()
     mouse.y = love.mouse.getY()
 
-    --Tire de bullet avec délai (coolDown)
+    --Tire de bullet avec délai 
     last_fire = last_fire + dt
     if love.mouse.isDown(1) and last_fire >= coolDown then
         if player.bulletcount < 5  then
             FireBullet(player)
             player.bulletcount = player.bulletcount + 1
-            last_fire = 0
+            last_fire = 0           
         end        
     end
 
@@ -257,6 +219,21 @@ function love.update(dt)
             StateMachine(entite,dt)            
         end
     end
+
+    -- Compter le nombre d'ennemis restants
+    local enemiesLeft = 0
+    for i, entite in ipairs(LIST_ENTITIES) do
+        if entite.type == "pnjEnemie" then
+            enemiesLeft = enemiesLeft + 1
+        end
+    end
+    -- Si plus d'ennemis, victoire
+    if enemiesLeft == 0 then
+        gameState = "victory"
+        victoryStats.time = math.floor(love.timer.getTime() - startTime)
+        victoryStats.enemiesKilled = NUMBERS_ENEMY        
+        victoryStats.playerPV = player.pv
+    end
 end
 
 function love.draw()
@@ -264,7 +241,10 @@ function love.draw()
         love.graphics.printf("Appuyer sur SPACE pour jouer", 0, height/2, width, "center")
         return
     elseif gameState == "end" then
-        love.graphics.printf("GAME OVER", 0, height/2, width, "center")
+        love.graphics.printf("GAME OVER\nAppuyez sur R pour recommencer", 0, height/2, width, "center")
+        return
+    elseif gameState == "victory" then
+        love.graphics.printf("VICTOIRE !\nAppuyez sur R pour rejouer\n\nTemps : " .. victoryStats.time .. "s\nEnnemis tués : " .. victoryStats.enemiesKilled .. "\nPV restants : " .. victoryStats.playerPV, 0, height/2-40, width, "center")
         return
     end
 
@@ -274,9 +254,7 @@ function love.draw()
         love.graphics.print("Angle tank : " .. math.floor(player.angle), 1, 15)
         love.graphics.print("X du tank : " .. math.floor(player.x), 1, 30)
         love.graphics.print("Y du tank : " .. math.floor(player.y), 1, 45)
-        love.graphics.print("Nombre de bullet : " .. #bullets, 1, 60)
-        love.graphics.print("Compteur bullet : " .. player.bulletcount, 1, 75)
-        
+        love.graphics.print("Nombre de bullet : " .. #bullets, 1, 60)     
     end
     
     --Afficher les entités
@@ -291,6 +269,20 @@ function love.draw()
             entite.image:getWidth() / 2,
             entite.image:getHeight() / 2
         )
+        -- Afficher le canon du joueur
+        if entite.type == "hero" then
+            love.graphics.setColor(0, 2, 0, 1)
+            local dx = mouse.x - entite.x
+            local dy = mouse.y - entite.y
+            local dist = math.sqrt(dx*dx + dy*dy)
+            local canonLength = 20
+            local nx = entite.x + (dx/dist) * canonLength
+            local ny = entite.y + (dy/dist) * canonLength
+            love.graphics.setLineWidth(5)
+            love.graphics.line(entite.x, entite.y, nx, ny)
+            love.graphics.setLineWidth(1)
+            love.graphics.setColor(1, 1, 1, 1)
+        end
         -- Affiche cercle de range ennemies
         if info == true and entite.type == "pnjEnemie" then
             love.graphics.setColor(1, 0, 0, 0.3) -- 
@@ -309,9 +301,8 @@ function love.draw()
             love.graphics.circle("fill", entite.lastSeenX, entite.lastSeenY, 6)
             love.graphics.setColor(1, 1, 1, 1) -- reset couleur
         end
-
-        --Affiche l'état actuel de l'ennemie
-        if entite.type == "pnjEnemie" then
+        --Affiche l'état actuel de l'ennemie uniquement si info == true
+        if info == true and entite.type == "pnjEnemie" then
             love.graphics.print("Etat : " .. entite.etat , entite.x - entite.size.x ,entite.y - entite.size.y)
         end
     end
