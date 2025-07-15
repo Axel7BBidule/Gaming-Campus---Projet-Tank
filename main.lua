@@ -1,8 +1,9 @@
 --Fichiers liés
 require("ennemies")
 
+
 --Constante
-NUMBERS_ENEMY = 6
+NUMBERS_ENEMY = math.random(4,10)
 SPEED_BULLET = 100
 SPEED_TANK_MAX = 1
 SPEED_TANK_MIN = -1
@@ -24,7 +25,7 @@ function CreateEntities(pImage, pType, pX, pY)
     entite.vx = 0
     entite.vy = 0
     entite.angle = 0
-    entite.speed = 0.5
+    entite.speed = 0.3
     entite.actual_speed = 0
     entite.speed_max = SPEED_TANK_MAX
     entite.speed_min = SPEED_TANK_MIN
@@ -33,11 +34,17 @@ function CreateEntities(pImage, pType, pX, pY)
     entite.vision = 200 --
     entite.pv = 10
     entite.etat = ""
+    entite.level = 1
     if pType == "pnjEnemie" then
-        entite.range_min = math.random(10, 20)
+        entite.range = math.random(100, 200)
         entite.cooldownTir = 2
         entite.last_fire = 0
-        entite.target = player -- sera mis à jour dans love.load
+        entite.target = player
+        entite.walkTargetX = nil
+        entite.walkTargetY = nil
+        entite.lastSeenX = nil
+        entite.lastSeenY = nil
+        
         function entite:fire()
             local bullet = {}
             bullet.x = self.x
@@ -88,7 +95,23 @@ function love.load()
     CreateEnemies(NUMBERS_ENEMY)
 end
 
+--Etat du jeu
+gameState = "menu"
+
 function love.update(dt)
+    if gameState == "menu" then
+        if love.keyboard.isDown("space") then
+            gameState = "game"
+            -- Reset du jeu
+            LIST_ENTITIES = {}
+            bullets = {}
+            player = CreateEntities("tank", "hero", width / 2, height / 2)
+            CreateEnemies(NUMBERS_ENEMY)
+        end
+        return
+    elseif gameState == "end" then
+        return
+    end
    
     -- Affiche l'aide au debug
     if love.keyboard.isDown("r") then
@@ -214,20 +237,37 @@ function love.update(dt)
                 if player.pv <= 0 then
                     table.remove(LIST_ENTITIES,hero)
                 end
-                end
             end
         end
     end
+    
 
+    -- Suppression du joueur si ses PV tombent à 0
+    for i = #LIST_ENTITIES, 1, -1 do
+        local entite = LIST_ENTITIES[i]
+        if entite.type == "hero" and entite.pv <= 0 then
+            table.remove(LIST_ENTITIES, i)
+            gameState = "end"
+        end
+    end
+    
     --Gestion comportement enemies
     for i, entite in ipairs(LIST_ENTITIES) do
         if entite.type == "pnjEnemie" then
-            StateMachine(entite, dt)
+            StateMachine(entite,dt)            
         end
     end
 end
 
 function love.draw()
+    if gameState == "menu" then
+        love.graphics.printf("Appuyer sur SPACE pour jouer", 0, height/2, width, "center")
+        return
+    elseif gameState == "end" then
+        love.graphics.printf("GAME OVER", 0, height/2, width, "center")
+        return
+    end
+
     if info == true then
         --Afficher Informations
         love.graphics.print("speed tank : " .. player.actual_speed, 1, 1)
@@ -236,8 +276,9 @@ function love.draw()
         love.graphics.print("Y du tank : " .. math.floor(player.y), 1, 45)
         love.graphics.print("Nombre de bullet : " .. #bullets, 1, 60)
         love.graphics.print("Compteur bullet : " .. player.bulletcount, 1, 75)
+        
     end
-
+    
     --Afficher les entités
     for i, entite in ipairs(LIST_ENTITIES) do
         love.graphics.draw(
@@ -250,6 +291,29 @@ function love.draw()
             entite.image:getWidth() / 2,
             entite.image:getHeight() / 2
         )
+        -- Affiche cercle de range ennemies
+        if info == true and entite.type == "pnjEnemie" then
+            love.graphics.setColor(1, 0, 0, 0.3) -- 
+            love.graphics.circle("fill", entite.x, entite.y, entite.range)
+            love.graphics.setColor(1, 1, 1, 1) 
+        end
+        --Affiche direction a atteindre aléatoire ennemies
+        if info == true and entite.type == "pnjEnemie" and entite.walkTargetX and entite.walkTargetY then
+            love.graphics.setColor(1, 1, 0, 1) 
+            love.graphics.rectangle("fill", entite.walkTargetX-1, entite.walkTargetY-1, 2, 2)
+            love.graphics.setColor(1, 1, 1, 1) 
+        end
+        --Affiche la dernière position connu du joueur 
+        if info == true and entite.type == "pnjEnemie" and entite.lastSeenX and entite.lastSeenY then
+            love.graphics.setColor(0, 0.5, 1, 1) -- bleu
+            love.graphics.circle("fill", entite.lastSeenX, entite.lastSeenY, 6)
+            love.graphics.setColor(1, 1, 1, 1) -- reset couleur
+        end
+
+        --Affiche l'état actuel de l'ennemie
+        if entite.type == "pnjEnemie" then
+            love.graphics.print("Etat : " .. entite.etat , entite.x - entite.size.x ,entite.y - entite.size.y)
+        end
     end
 
     --Afficher le tire/la bullet
